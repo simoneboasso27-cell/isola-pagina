@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L'Isola</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#171c2b; --panel:#fbf6e3; --ink:#23232f; --edge:#23232f; --accent:#f4b942;
+  --m:#3d6fd6; --f:#d6405a; --muted:#6b6b7a; --ok:#3f9c3f; --warn:#d68a1f; --bad:#c0392b;
+}
+@media (prefers-color-scheme: dark){ :root{ --bg:#0f1320; } }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#e9e6d8;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.45}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;max-width:1280px;margin:0 auto}
+h1{font:14px/1.3 'Press Start 2P',monospace;margin:0;color:var(--accent);letter-spacing:.5px}
+#stato{font:10px/1.6 'Press Start 2P',monospace;color:#cfe6ff}
+.btn{font:10px 'Press Start 2P',monospace;background:var(--panel);color:var(--ink);border:3px solid var(--edge);border-radius:6px;padding:8px 10px;cursor:pointer;box-shadow:0 3px 0 #0006}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #0006}
+.btn:disabled{opacity:.5;cursor:default}
+main{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr);gap:16px;max-width:1280px;margin:0 auto;padding:0 16px 32px}
+@media (max-width:900px){ main{grid-template-columns:1fr} }
+.box{background:var(--panel);color:var(--ink);border:4px solid var(--edge);border-radius:8px;box-shadow:0 0 0 3px var(--accent), 0 6px 0 #0005;padding:12px}
+.box h2{font:10px 'Press Start 2P',monospace;margin:0 0 10px;color:var(--ink)}
+canvas{display:block;width:100%;height:auto;image-rendering:pixelated;image-rendering:crisp-edges;border:4px solid var(--edge);border-radius:6px;background:#3b7ddd}
+.stage{position:relative}
+#msg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;background:#000a;color:#fff;border-radius:6px;font:10px/1.8 'Press Start 2P',monospace}
+aside{display:flex;flex-direction:column;gap:16px;min-width:0}
+.card{border:2px solid var(--edge);border-radius:6px;padding:8px;margin-bottom:8px;background:#fffdf3}
+.card .nome{font:10px 'Press Start 2P',monospace}
+.dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;border:1px solid #0006}
+.bars{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;margin:6px 0;font-size:11px}
+.bar{height:8px;background:#ddd6bb;border:1px solid var(--edge);border-radius:2px;align-self:center;overflow:hidden}
+.bar i{display:block;height:100%}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.chip{background:#ece4c3;border:1px solid var(--edge);border-radius:10px;padding:0 7px;font-size:11px}
+details summary{cursor:pointer;color:var(--muted);font-size:11px}
+details ul{margin:4px 0 0 16px;padding:0;font-size:12px}
+#log{max-height:300px;overflow:auto;font-size:12px}
+#log div{padding:3px 0;border-bottom:1px dashed #0002}
+#log .t{color:var(--muted)} #log .no{color:var(--bad)} #log q{font-style:italic}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.presets .btn{font-size:8px;padding:6px 7px}
+form.sp{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+form.sp label{font-size:11px;display:flex;flex-direction:column;gap:2px;color:var(--muted)}
+form.sp .w2{grid-column:1/-1}
+input,select,textarea{font:12px ui-monospace,monospace;border:2px solid var(--edge);border-radius:4px;padding:5px;background:#fff;color:var(--ink);width:100%}
+textarea{resize:vertical;min-height:50px}
+small.hint{color:var(--muted);font-size:11px}
+pre#json{white-space:pre-wrap;word-break:break-all;background:#fff;border:2px dashed var(--edge);padding:6px;font-size:11px;display:none}
+dialog{border:4px solid var(--edge);border-radius:8px;background:var(--panel);color:var(--ink);max-width:460px;width:92vw}
+dialog::backdrop{background:#000a}
+dialog label{display:block;margin:8px 0 2px;font-size:12px}
+svg.spark{width:100%;height:70px;background:#fffdf3;border:2px solid var(--edge);border-radius:4px}
+.legend{font-size:11px;display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>L'ISOLA</h1>
+  <div id="stato">Carico…</div>
+  <div style="display:flex;gap:8px">
+    <button class="btn" id="bReplay" disabled>▶ Rivedi turno</button>
+    <button class="btn" id="bCfg" title="Impostazioni">⚙</button>
+  </div>
+</header>
+
+<main>
+  <section class="stage">
+    <canvas id="c" width="640" height="448"></canvas>
+    <div id="msg"></div>
+  </section>
+
+  <aside>
+    <div class="box"><h2>ABITANTI</h2><div id="cards"></div></div>
+    <div class="box"><h2>FAUNA E CAMPI</h2><div id="fauna"></div></div>
+    <div class="box"><h2>CRONACA</h2><div id="cronaca" style="max-height:200px;overflow:auto;font-size:12px"></div><div id="morti" style="margin-top:6px"></div></div>
+    <div class="box"><h2>EVOLUZIONE</h2><div id="evo"></div></div>
+    <div class="box">
+      <h2>REGISTRO</h2>
+      <div id="log"></div>
+    </div>
+    <div class="box">
+      <h2>FAI APPARIRE QUALCOSA</h2>
+      <div class="presets" id="presets"></div>
+      <form class="sp" id="spForm">
+        <label>Tipo
+          <select name="tipo"><option value="oggetto">Oggetto</option><option value="personaggio">Personaggio</option><option value="animale">Animale</option></select>
+        </label>
+        <label>Nome <input name="nome" required maxlength="40" list="nomiAnimali" placeholder="es. cassa_misteriosa / capra"></label>
+        <datalist id="nomiAnimali"><option value="cinghiale"><option value="capra"><option value="muflone"><option value="fagiano"><option value="coniglio"><option value="cervo"><option value="uro"><option value="lupo"><option value="volpe"></datalist>
+        <label class="w2">Descrizione <textarea name="descrizione" maxlength="300" placeholder="Cosa è / com'è fatto / che carattere ha"></textarea></label>
+        <label>Specie (personaggi)
+          <select name="specie"><option value="umano">Umano</option><option value="animale">Animale</option></select>
+        </label>
+        <label>Sesso (umani/animali)
+          <select name="sesso"><option value="m">M</option><option value="f">F</option></select>
+        </label>
+        <label>x (facoltativo) <input name="x" type="number" min="0" max="39"></label>
+        <label>y (facoltativo) <input name="y" type="number" min="0" max="27"></label>
+        <label class="w2">Contenuto (oggetti, JSON facoltativo) <input name="contenuto" placeholder='{"legno":4,"fibre":2}'></label>
+        <div class="w2"><button class="btn" type="submit">＋ Metti in coda</button></div>
+      </form>
+      <p><small class="hint" id="spInfo"></small></p>
+      <pre id="json"></pre>
+    </div>
+  </aside>
+</main>
+
+<dialog id="dlg">
+  <form method="dialog">
+    <h2 style="font:11px 'Press Start 2P',monospace">IMPOSTAZIONI</h2>
+    <p><small class="hint">Repo pubblico con GitHub Pages: non serve niente. Repo privato: inserisci il repository e un token (Fine-grained, solo questo repo, permesso <b>Contents: Read and write</b>). Il token resta solo in questo browser.</small></p>
+    <label>Repository (utente/nome)</label><input id="cfgRepo" placeholder="simone/isola">
+    <label>Token GitHub</label><input id="cfgTok" type="password" placeholder="github_pat_…">
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+      <button class="btn" value="cancel">Annulla</button>
+      <button class="btn" id="cfgSave" value="ok">Salva</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+"use strict";
+const T = 16, TW = 40, TH = 28;
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const hash = (x, y, k = 0) => { let h = (x * 73856093) ^ (y * 19349663) ^ (k * 83492791); h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0); };
+
+// ---------------------------------------------------------------- config
+function loadCfg() {
+  let c = {};
+  try { c = JSON.parse(localStorage.getItem("isola_cfg") || "{}"); } catch (e) {}
+  if (!c.repo && /\.github\.io$/.test(location.hostname)) {
+    const seg = location.pathname.split("/").filter(Boolean)[0];
+    if (seg) c.repo = location.hostname.split(".")[0] + "/" + seg;
+  }
+  return c;
+}
+let cfg = loadCfg();
+function saveCfg() { try { localStorage.setItem("isola_cfg", JSON.stringify({ repo: cfg.repo, token: cfg.token })); } catch (e) {} }
+
+// ---------------------------------------------------------------- dati
+let mondo = null, pers = [], morti = [], eventi = [], spawnq = { coda: [] };
+const FILES = ["mondo", "personaggi", "eventi", "spawn"];
+
+async function leggiFile(nome) {
+  const via = async () => {
+    const r = await fetch(`data/${nome}.json?t=${Date.now()}`, { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  };
+  const api = async () => {
+    const r = await fetch(`https://api.github.com/repos/${cfg.repo}/contents/data/${nome}.json`, {
+      headers: { Authorization: `Bearer ${cfg.token}`, Accept: "application/vnd.github.raw+json" }, cache: "no-store" });
+    if (!r.ok) throw new Error("GitHub " + r.status);
+    return JSON.parse(await r.text());
+  };
+  if (cfg.token && cfg.repo) { try { return await api(); } catch (e) { return via(); } }
+  try { return await via(); } catch (e) { throw e; }
+}
+
+async function caricaTutto(prima) {
+  const [m, p, e, s] = await Promise.all(FILES.map(leggiFile));
+  const turnoNuovo = !mondo || m.turno !== mondo.turno;
+  mondo = m; pers = p.personaggi; morti = p.morti || []; eventi = e.eventi; spawnq = s;
+  if (turnoNuovo) { ground = null; }
+  sincronizzaAttori(turnoNuovo && !prima);
+  sincronizzaFauna(turnoNuovo && !prima);
+  aggiornaUI();
+  return turnoNuovo;
+}
+
+// ---------------------------------------------------------------- pixel art
+const mk = (w, h, fn) => { const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d"); fn(g); return c; };
+const R = (g, col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+
+function treeSprite(v) {
+  const dk = ["#2f7d32", "#2a7a45", "#3a7a2a"][v], md = ["#3f9c3f", "#37a05a", "#4aa335"][v], lt = ["#62bd57", "#5ac27a", "#7ccf5a"][v];
+  return mk(16, 24, g => {
+    R(g, "#00000033", 3, 21, 10, 3);
+    R(g, "#7a4a24", 6, 16, 4, 8); R(g, "#5c3518", 8, 16, 2, 8);
+    R(g, dk, 3, 9, 10, 9); R(g, dk, 2, 11, 12, 5); R(g, dk, 5, 6, 6, 4); R(g, dk, 6, 3, 4, 4);
+    R(g, md, 4, 9, 8, 7); R(g, md, 3, 11, 10, 3); R(g, md, 6, 5, 4, 5);
+    R(g, lt, 5, 6, 3, 3); R(g, lt, 4, 10, 3, 2); R(g, lt, 6, 3, 2, 2);
+    R(g, "#1f5a24", 3, 17, 10, 1);
+  });
+}
+const SPR = {};
+function buildSprites() {
+  SPR.tree = [treeSprite(0), treeSprite(1), treeSprite(2)];
+  SPR.rock = mk(16, 16, g => {
+    R(g, "#00000033", 2, 13, 12, 3);
+    R(g, "#8a8f98", 3, 8, 10, 6); R(g, "#a2a8b1", 4, 6, 8, 3); R(g, "#b8bec7", 5, 5, 4, 2);
+    R(g, "#737882", 10, 9, 3, 4); R(g, "#5f646c", 3, 13, 10, 1);
+  });
+  SPR.capanna = mk(16, 22, g => {
+    R(g, "#00000033", 1, 19, 14, 3);
+    R(g, "#d9b27c", 2, 11, 12, 9); R(g, "#c29a64", 2, 11, 2, 9);
+    for (let i = 0; i < 7; i++) R(g, "#b5443a", 8 - (2 + i), 3 + i, 4 + 2 * i, 1);
+    R(g, "#8c2f28", 0, 10, 16, 2);
+    R(g, "#5c3518", 6, 14, 4, 6); R(g, "#f4b942", 9, 17, 1, 1);
+  });
+  SPR.germoglio = mk(16, 16, g => { R(g, "#3f9c3f", 7, 10, 2, 4); R(g, "#62bd57", 5, 9, 2, 2); R(g, "#62bd57", 9, 8, 2, 2); });
+  SPR.generico = mk(16, 18, g => {
+    R(g, "#00000033", 3, 15, 10, 3);
+    R(g, "#7a4a24", 7, 8, 2, 9); R(g, "#e6c079", 2, 2, 12, 7); R(g, "#7a4a24", 2, 2, 12, 1); R(g, "#7a4a24", 2, 8, 12, 1);
+    R(g, "#7a4a24", 7, 4, 2, 1); R(g, "#7a4a24", 8, 5, 1, 1); R(g, "#7a4a24", 7, 6, 2, 1);
+  });
+  SPR.tomba = mk(16, 16, g => {
+    R(g, "#00000033", 3, 13, 10, 3);
+    R(g, "#9aa0a8", 5, 4, 6, 9); R(g, "#b5bbc3", 6, 3, 4, 2); R(g, "#7d838b", 5, 12, 6, 1);
+    R(g, "#5f646c", 7, 6, 2, 1); R(g, "#5f646c", 8, 5, 1, 4);
+  });
+  SPR.pontile = mk(16, 16, g => {
+    R(g, "#7a4a24", 0, 2, 16, 12);
+    for (let i = 0; i < 4; i++) { R(g, "#a8703a", 0, 2 + i * 3, 16, 2); R(g, "#5c3518", 0, 4 + i * 3, 16, 1); }
+    R(g, "#d9c9a0", 2, 2, 1, 12); R(g, "#d9c9a0", 13, 2, 1, 12);
+  });
+  SPR.fornace = mk(16, 18, g => {
+    R(g, "#00000033", 1, 15, 14, 3);
+    R(g, "#b0654a", 2, 5, 12, 11); R(g, "#8e4a34", 2, 5, 3, 11); R(g, "#c97a5c", 5, 4, 8, 2);
+    R(g, "#2b1a14", 5, 9, 6, 5); R(g, "#ff8c1a", 6, 11, 4, 3); R(g, "#ffd23f", 7, 12, 2, 2);
+    R(g, "#6b6b6b", 6, 1, 4, 4);
+  });
+  SPR.zattera = mk(16, 12, g => {
+    R(g, "#00000022", 0, 9, 16, 3);
+    for (let i = 0; i < 4; i++) { R(g, "#a8703a", 1, 2 + i * 2, 14, 2); R(g, "#5c3518", 1, 3 + i * 2, 14, 1); }
+    R(g, "#d9c9a0", 0, 2, 1, 8); R(g, "#d9c9a0", 15, 2, 1, 8);
+  });
+  SPR.barca = mk(20, 14, g => {
+    R(g, "#00000022", 1, 11, 18, 3);
+    R(g, "#8c5a2b", 1, 6, 18, 4); R(g, "#a8703a", 2, 5, 16, 2); R(g, "#5c3518", 3, 9, 14, 2);
+    R(g, "#8c5a2b", 0, 4, 3, 3); R(g, "#8c5a2b", 17, 4, 3, 3);
+  });
+  SPR.campo = campoSprite();
+  SPR.coltura = [0, 1, 2, 3].map(st => [colturaSprite(st, false), colturaSprite(st, true)]);
+  SPR.fenceB = recintoFence("dietro"); SPR.fenceF = recintoFence("davanti");
+  SPR.oggetto = mk(16, 16, g => {
+    R(g, "#00000033", 2, 13, 12, 3);
+    R(g, "#3b2412", 2, 6, 12, 8); R(g, "#8c5a2b", 3, 7, 10, 6); R(g, "#a8703a", 3, 6, 10, 3);
+    R(g, "#ffd23f", 7, 8, 2, 3);
+  });
+}
+function falo(f) {
+  return mk(16, 16, g => {
+    R(g, "#00000033", 3, 13, 10, 3);
+    R(g, "#8a8f98", 4, 12, 8, 3); R(g, "#5f646c", 4, 14, 8, 1);
+    R(g, "#7a4a24", 5, 11, 6, 2);
+    R(g, "#ff8c1a", 6, 6 + f, 4, 5 - f); R(g, "#ff5a1a", 7, 5 + f, 2, 2); R(g, "#ffd23f", 7, 8, 2, 3);
+  });
+}
+function campoSprite() {
+  return mk(16, 16, g => {
+    R(g, "#8a5a32", 0, 0, 16, 16);
+    for (let r = 0; r < 4; r++) { R(g, "#6e4524", 0, 2 + r * 4, 16, 2); R(g, "#a06c3e", 0, 1 + r * 4, 16, 1); }
+  });
+}
+function colturaSprite(stadio, campo) {
+  return mk(16, 16, g => {
+    if (stadio === 0) { for (let i = 0; i < 4; i++) R(g, "#d9c9a0", 3 + i * 3, 4 + (i % 2) * 6, 1, 1); return; }
+    const n = campo ? 4 : 3;
+    for (let i = 0; i < n; i++) {
+      const x = 2 + i * (campo ? 4 : 5), y0 = campo ? 3 : 5;
+      for (let r = 0; r < (campo ? 2 : 1); r++) {
+        const y = y0 + r * 6;
+        if (stadio === 1) { R(g, "#62bd57", x, y + 4, 1, 3); R(g, "#7ccf5a", x - 1, y + 3, 1, 1); R(g, "#7ccf5a", x + 1, y + 3, 1, 1); }
+        else if (stadio === 2) { R(g, "#4aa335", x, y + 1, 1, 6); R(g, "#62bd57", x - 1, y + 2, 1, 2); R(g, "#62bd57", x + 1, y + 3, 1, 2); }
+        else { R(g, "#c9a43a", x, y, 1, 7); R(g, "#f1d04b", x - 1, y, 3, 1); R(g, "#f1d04b", x - 1, y + 2, 3, 1); R(g, "#e0b83a", x, y - 1, 1, 1); }
+      }
+    }
+  });
+}
+function canaleSprite(n, e, sd, o) {
+  return mk(16, 16, g => {
+    R(g, "#8a5a32", 0, 0, 16, 16);
+    R(g, "#2f9bd6", 4, 4, 8, 8); R(g, "#7fd0f0", 5, 5, 3, 1);
+    if (n) R(g, "#2f9bd6", 4, 0, 8, 4);
+    if (sd) R(g, "#2f9bd6", 4, 12, 8, 4);
+    if (o) R(g, "#2f9bd6", 0, 4, 4, 8);
+    if (e) R(g, "#2f9bd6", 12, 4, 4, 8);
+  });
+}
+function recintoCentro(fieno) {
+  return mk(16, 16, g => {
+    R(g, "#00000033", 1, 13, 14, 3);
+    R(g, "#7a4a24", 2, 7, 12, 6); R(g, "#a8703a", 2, 7, 12, 2); R(g, "#5c3518", 3, 11, 10, 1);
+    const h = Math.min(6, Math.ceil(fieno / 3));
+    for (let i = 0; i < h; i++) R(g, "#e6c557", 3 + i * 2, 6 - (i % 2), 2, 2);
+  });
+}
+function recintoFence(parte) {
+  // 3x3 tile (48x48); parte: "dietro" = lato nord + montanti laterali alti, "davanti" = lato sud
+  return mk(48, 48, g => {
+    const post = (x, y) => { R(g, "#5c3518", x, y, 2, 7); R(g, "#a8703a", x, y, 2, 2); };
+    if (parte === "dietro") {
+      R(g, "#a8703a", 2, 4, 44, 2); R(g, "#7a4a24", 2, 6, 44, 1);
+      for (let x = 2; x <= 44; x += 8) post(x, 1);
+      R(g, "#a8703a", 2, 4, 2, 42); R(g, "#a8703a", 44, 4, 2, 42);
+    } else {
+      R(g, "#a8703a", 2, 42, 44, 2); R(g, "#7a4a24", 2, 44, 44, 1);
+      for (let x = 2; x <= 44; x += 8) post(x, 39);
+    }
+  });
+}
+// ---- fauna
+const ANIM = {
+  cinghiale: { c: "#4a3a30", d: "#2e231c", l: "#6a5444", s: 1.0, f: "zanne" },
+  maiale: { c: "#e8a3a8", d: "#c97d84", l: "#f3c3c6", s: 0.95, f: "coda" },
+  capra: { c: "#d8d2c4", d: "#9a927f", l: "#eee9db", s: 0.85, f: "corna" },
+  muflone: { c: "#8a6f4e", d: "#5e4a30", l: "#a68a64", s: 0.9, f: "corna_arr" },
+  pecora: { c: "#f1efe6", d: "#bdb9a8", l: "#ffffff", s: 0.9, f: "lana" },
+  coniglio: { c: "#a99a86", d: "#7d6f5e", l: "#cfc2ae", s: 0.6, f: "orecchie" },
+  cervo: { c: "#b5834a", d: "#7d5a2e", l: "#d3a56e", s: 1.1, f: "palchi" },
+  uro: { c: "#33261e", d: "#1c140f", l: "#4d3a2e", s: 1.25, f: "corna" },
+  bue: { c: "#7b4a2a", d: "#4e2c16", l: "#9a6540", s: 1.2, f: "corna" },
+  lupo: { c: "#7d8189", d: "#4f5359", l: "#a6aab2", s: 0.95, f: "muso" },
+  volpe: { c: "#d9742a", d: "#a24d12", l: "#f1a766", s: 0.7, f: "codafolta" },
+  animale: { c: "#8b5a2b", d: "#5c3a1a", l: "#a06a35", s: 0.9, f: "" },
+};
+function drawBird(g, specie, step) {
+  const gal = specie === "gallina";
+  const body = gal ? "#f4f1e8" : "#9b6a32", wing = gal ? "#d6d1c0" : "#7a4f22", head = gal ? "#f4f1e8" : "#2c7a4a";
+  R(g, "#00000040", 3, 14, 10, 2);
+  const b = step % 2;
+  R(g, "#d9a441", 6, 12 - (b ? 1 : 0), 1, 3); R(g, "#d9a441", 9, 12 - (b ? 0 : 1), 1, 3);
+  R(g, body, 3, 7, 9, 6); R(g, wing, 5, 8, 5, 3);
+  if (gal) { R(g, "#f4f1e8", 1, 6, 3, 4); } else { R(g, "#7a4f22", 0, 8, 4, 2); R(g, "#7a4f22", 0, 10, 5, 2); R(g, "#c78f4a", 4, 7, 3, 1); }
+  R(g, head, 10, 4, 4, 5); R(g, "#222", 12, 5, 1, 1); R(g, "#e8a02a", 14, 6, 2, 1);
+  R(g, gal ? "#d6405a" : "#d6405a", gal ? 11 : 12, 3, gal ? 2 : 1, 1);
+}
+function drawFauna(g, x, y, dir, step, a) {
+  const dom = a.domestico;
+  let sp = a.specie;
+  if (dom) sp = { cinghiale: "maiale", muflone: "pecora", fagiano: "gallina", uro: "bue" }[sp] || sp;
+  const k = ANIM[sp] || ANIM.animale, ix = Math.round(x), iy = Math.round(y);
+  const baby = a.adulto === false;
+  g.save();
+  const sc = k.s * (baby ? 0.6 : 1);
+  g.translate(ix + 8, iy + 16);
+  if (dir === "sinistra") g.scale(-1, 1);
+  g.scale(sc, sc); g.translate(-8, -16);
+  if (sp === "fagiano" || sp === "gallina") { drawBird(g, sp, step); g.restore(); return; }
+  R(g, "#00000040", 1, 15, 13, 3);
+  const b = step % 2;
+  R(g, k.d, 3, 12 - (b ? 1 : 0), 2, 4); R(g, k.d, 6, 12 - (b ? 0 : 1), 2, 4); R(g, k.d, 9, 12 - (b ? 1 : 0), 2, 4);
+  R(g, k.c, 2, 6, 10, 7); R(g, k.l, 3, 6, 8, 3);
+  if (k.f === "lana") { for (let i = 0; i < 5; i++) { R(g, "#fff", 1 + i * 2, 5 + (i % 2), 3, 3); } R(g, k.c, 2, 8, 10, 4); }
+  R(g, k.c, 11, 4, 4, 6); R(g, "#222", 13, 6, 1, 1); R(g, k.l, 14, 8, 2, 2);
+  if (k.f === "coda") { R(g, k.d, 1, 6, 1, 2); }
+  else if (k.f === "zanne") { R(g, "#f4efe0", 14, 9, 1, 2); R(g, k.d, 1, 6, 2, 2); }
+  else if (k.f === "corna") { R(g, "#efe7d2", 11, 1, 1, 3); R(g, "#efe7d2", 14, 1, 1, 3); R(g, "#efe7d2", 10, 1, 1, 1); R(g, "#efe7d2", 15, 1, 1, 1); }
+  else if (k.f === "corna_arr") { R(g, "#d7c9a6", 10, 2, 3, 2); R(g, "#d7c9a6", 10, 4, 1, 2); R(g, "#d7c9a6", 13, 2, 1, 2); }
+  else if (k.f === "palchi") { for (const px of [11, 14]) { R(g, "#e3d4ae", px, 0, 1, 4); } R(g, "#e3d4ae", 10, 1, 1, 1); R(g, "#e3d4ae", 12, 0, 1, 1); R(g, "#e3d4ae", 15, 1, 1, 1); }
+  else if (k.f === "orecchie") { R(g, k.c, 11, 0, 1, 5); R(g, k.c, 13, 0, 1, 5); R(g, "#e9b3b3", 11, 1, 1, 2); R(g, "#e9b3b3", 13, 1, 1, 2); R(g, "#fff", 1, 8, 2, 2); }
+  else if (k.f === "muso") { R(g, k.d, 14, 7, 2, 2); R(g, k.d, 0, 7, 3, 1); R(g, k.c, 11, 2, 1, 2); R(g, k.c, 13, 2, 1, 2); }
+  else if (k.f === "codafolta") { R(g, k.c, 0, 6, 4, 3); R(g, "#fff", 0, 7, 1, 2); R(g, k.c, 11, 2, 1, 2); R(g, k.c, 13, 2, 1, 2); }
+  if (dom) { R(g, "#d6405a", 11, 9, 4, 1); }
+  g.restore();
+}
+
+// ground rendering (prerender, 2 water frames)
+let ground = null;
+function renderGround(frame) {
+  return mk(TW * T, TH * T, g => {
+    const M = mondo.mappa;
+    const at = (x, y) => (M[y] && M[y][x]) || "~";
+    for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
+      const c = at(x, y), px = x * T, py = y * T;
+      if (c === "~" || c === "w") {
+        const base = c === "~" ? "#3b7ddd" : "#2f9bd6", wave = c === "~" ? "#6fa8f0" : "#7fd0f0";
+        R(g, base, px, py, T, T);
+        for (let k = 0; k < 2; k++) {
+          const hx = hash(x, y, k + 3) % 10, hy = hash(x, y, k + 9) % 14;
+          R(g, wave, px + ((hx + frame * 2) % 12), py + hy, 4, 1);
+        }
+        const foam = "#d8ecff";
+        if (c === "~") {
+          if (at(x, y - 1) !== "~") R(g, foam, px, py, T, 1);
+          if (at(x, y + 1) !== "~") R(g, foam, px, py + T - 1, T, 1);
+          if (at(x - 1, y) !== "~") R(g, foam, px, py, 1, T);
+          if (at(x + 1, y) !== "~") R(g, foam, px + T - 1, py, 1, T);
+        } else {
+          g.fillStyle = "#1d6fa0";
+          if (at(x, y - 1) !== "w") R(g, "#1d6fa0", px, py, T, 1);
+          if (at(x, y + 1) !== "w") R(g, "#1d6fa0", px, py + T - 1, T, 1);
+          if (at(x - 1, y) !== "w") R(g, "#1d6fa0", px, py, 1, T);
+          if (at(x + 1, y) !== "w") R(g, "#1d6fa0", px + T - 1, py, 1, T);
+        }
+      } else if (c === "s") {
+        R(g, "#e8d69c", px, py, T, T);
+        for (let k = 0; k < 4; k++) R(g, "#d2bf82", px + hash(x, y, k) % 15, py + hash(x, y, k + 5) % 15, 1, 1);
+        if (hash(x, y, 77) % 23 === 0) R(g, "#fff", px + 6, py + 7, 2, 1);
+      } else if (c === "m" || c === "M") {
+        const mt = (xx, yy) => { const q = at(xx, yy); return q === "m" || q === "M"; };
+        R(g, "#948b7e", px, py, T, T);
+        for (let k = 0; k < 5; k++) R(g, "#7d7468", px + hash(x, y, k) % 12, py + 2 + hash(x, y, k + 8) % 11, 4 + hash(x, y, k + 2) % 3, 1);
+        for (let k = 0; k < 4; k++) R(g, "#a89f91", px + hash(x, y, k + 20) % 14, py + hash(x, y, k + 30) % 14, 2, 1);
+        if (!mt(x, y - 1)) { R(g, "#a59d90", px, py, T, 4); R(g, "#bdb5a8", px, py, T, 1); }
+        if (c === "M") {
+          R(g, "#e8eff6", px, py, T, T);
+          for (let k = 0; k < 6; k++) R(g, "#b9c8d8", px + hash(x, y, k + 40) % 13, py + hash(x, y, k + 50) % 13, 3, 2);
+          for (let k = 0; k < 3; k++) R(g, "#8d857a", px + hash(x, y, k + 60) % 12, py + 8 + hash(x, y, k + 70) % 6, 3, 2);
+        }
+        if (!mt(x, y + 1)) { R(g, "#4d463f", px, py + T - 5, T, 5); R(g, "#3a342e", px, py + T - 2, T, 2); }
+        if (!mt(x - 1, y)) R(g, "#5a534b", px, py, 1, T);
+        if (!mt(x + 1, y)) R(g, "#5a534b", px + T - 1, py, 1, T);
+      } else {
+        R(g, "#5db85c", px, py, T, T);
+        if ((x + y) % 2 === 0) R(g, "#59b058", px, py, T, T);
+        for (let k = 0; k < 3; k++) {
+          const tx = hash(x, y, k) % 13, ty = hash(x, y, k + 4) % 12;
+          R(g, "#4aa04a", px + tx, py + ty + 2, 1, 2); R(g, "#4aa04a", px + tx + 2, py + ty + 3, 1, 1);
+        }
+        const h = hash(x, y, 55) % 40;
+        if (h === 0) { R(g, "#fff3a0", px + 5, py + 6, 2, 2); R(g, "#f4b942", px + 5, py + 6, 1, 1); }
+        else if (h === 1) { R(g, "#ff8fa3", px + 9, py + 9, 2, 2); }
+      }
+    }
+  });
+}
+
+// ---------------------------------------------------------------- attori
+const actors = {};
+const COL = ["#8e44ad", "#16a085", "#d35400", "#2c3e50", "#c0392b", "#27ae60"];
+function stile(p) {
+  if (p.id === "p1") return { shirt: "#3d6fd6", hair: "#4a2c17", long: false };
+  if (p.id === "p2") return { shirt: "#d6405a", hair: "#c27a2c", long: true };
+  return { shirt: COL[hash(p.id.length, p.id.charCodeAt(p.id.length - 1), 2) % COL.length], hair: ["#222", "#7a4a24", "#d9b27c", "#a33"][hash(p.id.charCodeAt(1), 3, 1) % 4], long: p.sesso === "f" };
+}
+const faAct = {};
+function sincronizzaFauna(turnoNuovo) {
+  const ids = new Set();
+  for (const a of mondo.fauna || []) {
+    ids.add(a.id);
+    let f = faAct[a.id];
+    if (!f) { f = faAct[a.id] = { x: a.x, y: a.y, step: 0, dir: a.dir || "giu" }; }
+    else if (turnoNuovo) { f.x = a.px !== undefined ? a.px : f.x; f.y = a.py !== undefined ? a.py : f.y; }
+    f.tx = a.x; f.ty = a.y; f.dir = a.dir || f.dir;
+  }
+  for (const id of Object.keys(faAct)) if (!ids.has(id)) delete faAct[id];
+}
+function sincronizzaAttori(snap) {
+  for (const p of pers) {
+    if (!actors[p.id]) actors[p.id] = { x: p.x, y: p.y, dir: p.dir || "giu", step: 0, tx: null, ty: null, cb: null, bubble: null, label: null };
+    else if (snap && !replaying) { const a = actors[p.id]; a.x = p.x; a.y = p.y; a.dir = p.dir || a.dir; }
+  }
+  for (const id of Object.keys(actors)) if (!pers.find(p => p.id === id)) delete actors[id];
+}
+function drawHuman(g, px, py, dir, step, st) {
+  const x = Math.round(px), y = Math.round(py);
+  R(g, "#00000040", x + 3, y + 17, 10, 3);
+  const b = step % 2;
+  R(g, "#3b3b5c", x + 5, y + 15 - (b ? 1 : 0), 3, 4); R(g, "#3b3b5c", x + 8, y + 15 - (b ? 0 : 1), 3, 4);
+  R(g, st.shirt, x + 4, y + 9, 8, 7);
+  R(g, "#f1c9a0", x + 3, y + 10, 1, 4); R(g, "#f1c9a0", x + 12, y + 10, 1, 4);
+  R(g, "#f1c9a0", x + 4, y + 2, 8, 7);
+  if (dir === "su") { R(g, st.hair, x + 4, y + 1, 8, 8); }
+  else { R(g, st.hair, x + 4, y + 1, 8, 3); }
+  if (st.long) { R(g, st.hair, x + 3, y + 2, 1, 8); R(g, st.hair, x + 12, y + 2, 1, 8); }
+  if (dir === "giu") { R(g, "#222", x + 6, y + 5, 1, 2); R(g, "#222", x + 9, y + 5, 1, 2); }
+  else if (dir === "sinistra") { R(g, "#222", x + 5, y + 5, 1, 2); }
+  else if (dir === "destra") { R(g, "#222", x + 10, y + 5, 1, 2); }
+}
+// ---------------------------------------------------------------- replay
+let replaying = false;
+function muoviFauna(dt) {
+  for (const f of Object.values(faAct)) {
+    const dx = f.tx - f.x, dy = f.ty - f.y, d = Math.hypot(dx, dy), v = 2.2 * dt;
+    if (d < 0.01) { f.moving = false; continue; }
+    f.moving = true; f.step += dt * 7;
+    if (Math.abs(dx) > Math.abs(dy)) f.dir = dx > 0 ? "destra" : "sinistra"; else f.dir = dy > 0 ? "giu" : "su";
+    if (d <= v) { f.x = f.tx; f.y = f.ty; } else { f.x += dx / d * v; f.y += dy / d * v; }
+  }
+}
+function muoviAttori(dt) {
+  muoviFauna(dt);
+  for (const a of Object.values(actors)) {
+    if (a.tx === null) continue;
+    const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy), v = 5 * dt;
+    a.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "destra" : "sinistra") : (dy > 0 ? "giu" : "su");
+    a.step += dt * 8;
+    if (d <= v) { a.x = a.tx; a.y = a.ty; a.tx = a.ty = null; const cb = a.cb; a.cb = null; if (cb) cb(); }
+    else { a.x += dx / d * v; a.y += dy / d * v; }
+  }
+}
+const camminaVerso = (a, x, y) => new Promise(res => { a.tx = x; a.ty = y; a.cb = res; });
+const ETICHETTE = { raccogli: "…raccoglie", costruisci: "…costruisce", inventa: "…inventa!", mangia: "…mangia", bevi: "…beve", riposa: "zzz", pianta: "…semina", cucina: "…cucina", caccia: "…caccia", nutri: "…nutre", addomestica: "…addomestica", fauna: "", dai: "…offre", osserva: "…osserva", sviene: "!!", usa: "…usa", interagisci: "♥", insegna: "…insegna", nasce: "★ nasce!", cresce: "★ adulto", muore: "✝", segue: "" };
+async function replay() {
+  if (replaying || !mondo) return;
+  replaying = true; $("#bReplay").disabled = true;
+  const t = mondo.turno;
+  const evs = eventi.filter(e => e.turno === t && actors[e.chi]);
+  for (const p of pers) {
+    const a = actors[p.id], first = evs.find(e => e.chi === p.id && e.da);
+    if (first) { a.x = first.da[0]; a.y = first.da[1]; }
+  }
+  for (const e of evs) {
+    const a = actors[e.chi];
+    if (e.usato && e.usato.length && e.percorso && e.percorso.length) { a.label = "usa: " + e.usato.join(", "); }
+    for (const [x, y] of e.percorso || []) await camminaVerso(a, x, y);
+    a.label = e.usato && e.usato.length ? "usa: " + e.usato.map(u => String(u).replace(/_/g, " ")).join(", ") : (e.percorso && e.percorso.length ? null : (ETICHETTE[e.azione] || null));
+    if (e.dire) a.bubble = e.dire;
+    await sleep(e.dire ? 3400 : (a.label ? 1500 : 400));
+    a.bubble = null; a.label = null;
+  }
+  for (const p of pers) { const a = actors[p.id]; a.x = p.x; a.y = p.y; a.tx = a.ty = null; }
+  replaying = false; $("#bReplay").disabled = false;
+}
+
+// ---------------------------------------------------------------- render
+const cv = $("#c"), g = cv.getContext("2d");
+g.imageSmoothingEnabled = false;
+const TINT = { alba: "rgba(255,170,120,.16)", mattina: null, mezzogiorno: null, pomeriggio: "rgba(255,190,90,.10)", sera: "rgba(60,40,130,.28)", notte: "rgba(8,10,60,.5)" };
+function fraseBolla(txt) {
+  const words = txt.split(/\s+/); const lines = []; let cur = "";
+  for (const w of words) { if ((cur + " " + w).trim().length > 24) { lines.push(cur); cur = w; } else cur = (cur + " " + w).trim(); }
+  if (cur) lines.push(cur);
+  return lines.slice(0, 4);
+}
+function bolla(px, py, txt) {
+  const lines = fraseBolla(txt); g.font = "8px monospace";
+  const w = Math.max(...lines.map(l => g.measureText(l).width)) + 8, h = lines.length * 10 + 6;
+  let bx = Math.round(px + 8 - w / 2), by = Math.round(py - h - 6);
+  bx = Math.max(2, Math.min(TW * T - w - 2, bx)); by = Math.max(2, by);
+  R(g, "#23232f", bx - 1, by - 1, w + 2, h + 2); R(g, "#fff", bx, by, w, h);
+  R(g, "#23232f", Math.round(px + 6), by + h + 1, 4, 2); R(g, "#fff", Math.round(px + 7), by + h, 2, 2);
+  g.fillStyle = "#23232f"; g.textBaseline = "top";
+  lines.forEach((l, i) => g.fillText(l, bx + 4, by + 4 + i * 10));
+}
+function testoPiccolo(txt, px, py) {
+  g.font = "7px monospace"; g.textBaseline = "top"; g.textAlign = "center";
+  g.fillStyle = "#000"; g.fillText(txt, px + 9, py + 1); g.fillStyle = "#fff"; g.fillText(txt, px + 8, py);
+  g.textAlign = "left";
+}
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  if (mondo) {
+    muoviAttori(dt);
+    if (!ground) ground = [renderGround(0), renderGround(1)];
+    const wf = Math.floor(now / 600) % 2, ff = Math.floor(now / 180) % 2;
+    g.drawImage(ground[wf], 0, 0);
+    const lista = [];
+    for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
+      const c = mondo.mappa[y][x];
+      if (c === "f") lista.push({ y, k: 0, d: () => g.drawImage(SPR.tree[hash(x, y, 5) % 3], x * T, y * T + T - 24) });
+      else if (c === "r") lista.push({ y, k: 0, d: () => g.drawImage(SPR.rock, x * T, y * T) });
+    }
+    for (const s of mondo.germogli) lista.push({ y: s.y, k: 0, d: () => g.drawImage(SPR.germoglio, s.x * T, s.y * T) });
+    for (const c of mondo.costruzioni) lista.push({ y: c.tipo === "pontile" ? -1 : c.y, k: 0, d: () => {
+      if (c.tipo === "capanna") g.drawImage(SPR.capanna, c.x * T, c.y * T + T - 22);
+      else if (c.tipo === "falo") g.drawImage(falo(ff), c.x * T, c.y * T);
+      else if (c.tipo === "campo" || c.tipo === "orto") g.drawImage(SPR.campo, c.x * T, c.y * T);
+      else if (c.tipo === "canale") {
+        const isC = (xx, yy) => mondo.costruzioni.some(q => q.tipo === "canale" && q.x === xx && q.y === yy) || (mondo.mappa[yy] || "")[xx] === "w";
+        g.drawImage(canaleSprite(isC(c.x, c.y - 1), isC(c.x + 1, c.y), isC(c.x, c.y + 1), isC(c.x - 1, c.y)), c.x * T, c.y * T);
+      }
+      else if (c.tipo === "recinto") {
+        const fieno = Object.values(c.scorte || {}).reduce((u, v) => u + v, 0);
+        g.drawImage(recintoCentro(fieno), c.x * T, c.y * T);
+      }
+      else if (c.tipo === "tomba") { g.drawImage(SPR.tomba, c.x * T, c.y * T); testoPiccolo((c.nome || "").slice(0, 10), c.x * T, c.y * T - 8); }
+      else if (c.tipo === "pontile") g.drawImage(SPR.pontile, c.x * T, c.y * T);
+      else if (c.tipo === "fornace") g.drawImage(SPR.fornace, c.x * T, c.y * T - 2);
+      else { g.drawImage(SPR.generico, c.x * T, c.y * T + T - 18); testoPiccolo(c.tipo.slice(0, 12), c.x * T, c.y * T - 10); }
+    } });
+    for (const c of mondo.costruzioni) if (c.tipo === "recinto") {
+      lista.push({ y: c.y - 1.6, k: 0, d: () => g.drawImage(SPR.fenceB, (c.x - 1) * T, (c.y - 1) * T) });
+      lista.push({ y: c.y + 1.7, k: 2, d: () => g.drawImage(SPR.fenceF, (c.x - 1) * T, (c.y - 1) * T) });
+    }
+    for (const k of mondo.colture || []) lista.push({ y: k.y - 0.01, k: 0, d: () => g.drawImage(SPR.coltura[k.stadio][k.campo ? 1 : 0], k.x * T, k.y * T) });
+    for (const a of mondo.fauna || []) {
+      const f = faAct[a.id]; if (!f) continue;
+      lista.push({ y: f.y + 0.35, k: 1, d: () => {
+        drawFauna(g, f.x * T, f.y * T - 3, f.dir, f.moving ? Math.floor(f.step) : 0, a);
+        if (a.domestico && a.nome) testoPiccolo(a.nome.slice(0, 8), f.x * T, f.y * T - 9);
+      } });
+    }
+    for (const o of mondo.oggetti) lista.push({ y: o.y, k: 0, d: () => {
+      g.drawImage(SPR.oggetto, o.x * T, o.y * T); testoPiccolo(String(o.nome).replace(/_/g, " ").slice(0, 12), o.x * T, o.y * T - 8);
+      const sp = Math.floor(now / 250) % 4; R(g, "#fff", o.x * T + 2 + sp * 3, o.y * T + 3 + (sp % 2) * 3, 1, 1);
+    } });
+    for (const p of pers) {
+      const a = actors[p.id]; if (!a) continue;
+      lista.push({ y: a.y + 0.4, k: 1, d: () => {
+        const st = stile(p), py = a.y * T - 4, px = a.x * T;
+        const ix = Math.round(a.x), iy = Math.round(a.y), tl = (mondo.mappa[iy] || "")[ix];
+        if ((tl === "~" || tl === "w") && !mondo.costruzioni.some(c => c.tipo === "pontile" && c.x === ix && c.y === iy)) {
+          if (p.inventario && p.inventario.barca) g.drawImage(SPR.barca, px - 2, a.y * T + 2); else g.drawImage(SPR.zattera, px, a.y * T + 3);
+        }
+        if (p.adulto === false) { g.save(); g.translate(px + 2, py + 6); g.scale(0.72, 0.72); drawHuman(g, 0, 0, a.dir, a.tx !== null ? Math.floor(a.step) : 0, st); g.restore(); }
+        else drawHuman(g, px, py, a.dir, a.tx !== null ? Math.floor(a.step) : 0, st);
+        const nome = p.nome.slice(0, 10);
+        testoPiccolo(nome, px, py - 8);
+      }, bub: () => { const px = a.x * T, py = a.y * T - 6; if (a.bubble) bolla(px, py - 8, a.bubble); else if (a.label) bolla(px, py - 8, a.label); } });
+    }
+    lista.sort((u, v) => u.y - v.y || u.k - v.k);
+    for (const e of lista) e.d();
+    for (const e of lista) if (e.bub) e.bub();
+    const stg = { primavera: null, estate: "rgba(255,220,120,.07)", autunno: "rgba(200,110,30,.12)", inverno: "rgba(200,225,255,.20)" }[mondo.stagione];
+    if (stg) { g.fillStyle = stg; g.fillRect(0, 0, cv.width, cv.height); }
+    const tint = TINT[mondo.fase];
+    if (tint) { g.fillStyle = tint; g.fillRect(0, 0, cv.width, cv.height); }
+    if (mondo.stagione === "inverno") { g.fillStyle = "rgba(255,255,255,.8)"; for (let i = 0; i < 36; i++) { const fx = (hash(i, 1, 9) % 640 + now / 40 * (1 + i % 3 * .3)) % 640, fy = (hash(i, 2, 9) % 448 + now / 20 * (1 + i % 2 * .5)) % 448; g.fillRect(fx, fy, 2, 2); } }
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------------------------------------------------------------- UI
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function barra(v, col) { return `<div class="bar"><i style="width:${Math.max(0, Math.min(100, v))}%;background:${col}"></i></div>`; }
+function aggiornaUI() {
+  const ore = mondo.ora !== undefined ? String(mondo.ora).padStart(2, "0") + ":00" : "";
+  $("#stato").textContent = mondo.anno
+    ? `ANNO ${mondo.anno} · ${String(mondo.stagione).toUpperCase()} · GIORNO ${mondo.giorno_anno} · ${mondo.fase.toUpperCase()} ${ore} · TURNO ${mondo.turno}`
+    : `GIORNO ${mondo.giorno} · TURNO ${mondo.turno} · ${mondo.fase.toUpperCase()}`;
+  $("#bReplay").disabled = replaying;
+  $("#cards").innerHTML = pers.map(p => {
+    const b = p.bisogni, st = stile(p);
+    const inv = Object.entries(p.inventario).map(([k, v]) => `<span class="chip">${esc(k)} ×${v}</span>`).join("") || '<small class="hint">inventario vuoto</small>';
+    const mem = p.memoria.map(m => `<li>${esc(m)}</li>`).join("") || "<li>(vuota)</li>";
+    const anni = p.eta_giorni !== undefined ? (p.eta_giorni / ((mondo.anno && 96) || 96)).toFixed(1) : "?";
+    const sa = (p.sa || []).map(k => `<span class="chip" style="background:#dfeccb">${esc(k)}</span>`).join("");
+    const rel = Object.values(p.relazioni || {}).map(r => `${esc(r.nome)} ${r.affetto > 0 ? "♥" : "✖"}${r.affetto}`).join(" · ");
+    const figli = (p.figli || []).map(id => (pers.find(q => q.id === id) || {}).nome).filter(Boolean).join(", ");
+    const extra = [p.gravida ? "🤰 in attesa" : "", p.adulto === false ? "👶 bambino" : "", figli ? "figli: " + esc(figli) : ""].filter(Boolean).join(" · ");
+    return `<div class="card"><span class="dot" style="background:${st.shirt}"></span><span class="nome">${esc(p.nome)}</span>
+      <small class="hint"> ${p.specie === "animale" ? "animale" : p.sesso === "f" ? "lei" : "lui"} · ${anni} anni · (${p.x},${p.y}) · ${esc(p.umore || "")}</small>
+      <div class="bars"><span>fame</span>${barra(b.fame, "#d68a1f")}<span>sete</span>${barra(b.sete, "#3b7ddd")}<span>energia</span>${barra(b.energia, "#3f9c3f")}<span>salute</span>${barra(b.salute, "#c0392b")}</div>
+      <div class="chips">${inv}</div>
+      ${sa ? `<div class="chips">🧠 ${sa}</div>` : ""}
+      ${rel ? `<div style="font-size:11px;color:var(--muted)">${rel}</div>` : ""}
+      ${extra ? `<div style="font-size:11px">${extra}</div>` : ""}
+      <div style="font-size:12px">🎯 ${esc(p.obiettivo)}</div>
+      <details><summary>Taccuino (${p.memoria.length})</summary><ul>${mem}</ul></details></div>`;
+  }).join("");
+  const nomi = Object.fromEntries(pers.map(p => [p.id, stile(p).shirt]));
+  $("#log").innerHTML = eventi.slice(-80).reverse().map(e => {
+    const col = nomi[e.chi] || "#888";
+    return `<div title="${esc(e.pensiero || "")}"><span class="t">T${e.turno}</span> <span class="dot" style="background:${col}"></span><span class="${e.ok ? "" : "no"}">${esc(e.testo)}</span>${(e.usato && e.usato.length) ? ` <small class="hint">🔧 ${esc(e.usato.join(", "))}</small>` : ""}${e.dire ? ` <q>${esc(e.dire)}</q>` : ""}${e.pensiero ? `<br><small class="hint">💭 ${esc(e.pensiero)}</small>` : ""}</div>`;
+  }).join("") || "<small class='hint'>Ancora nessun evento.</small>";
+  $("#cronaca").innerHTML = (mondo.cronaca || []).slice(-40).reverse().map(c => `<div style="padding:2px 0;border-bottom:1px dashed #0002"><span class="t" style="color:var(--muted)">A${c.anno} ${esc(c.stagione || "")} g${c.giorno}</span> ${esc(c.testo)}</div>`).join("") || "<small class='hint'>La storia dell'isola comparirà qui.</small>";
+  $("#morti").innerHTML = morti.length ? `<small class="hint">✝ In memoria: ${morti.map(m => esc(m.nome) + " (" + esc(m.causa) + ")").join(", ")}</small>` : "";
+  pannelloFauna();
+  evoluzione();
+  const q = (spawnq.coda || []);
+  $("#spInfo").textContent = q.length ? `In coda per il prossimo turno: ${q.map(s => s.nome).join(", ")}.` : "Coda vuota. Al prossimo turno gli elementi in coda compaiono sull'isola.";
+}
+const NOME_DOM = { cinghiale: "maiale", fagiano: "gallina", muflone: "pecora", uro: "bue" };
+function pannelloFauna() {
+  const fa = mondo.fauna || [], conta = {};
+  for (const a of fa) { const k = a.domestico ? (NOME_DOM[a.specie] || a.specie) + " 🏠" : a.specie; conta[k] = (conta[k] || 0) + 1; }
+  const chips = Object.entries(conta).sort((x, y) => y[1] - x[1]).map(([k, n]) => `<span class="chip">${esc(k)} ×${n}</span>`).join("") || "<small class='hint'>Nessun animale.</small>";
+  const dom = fa.filter(a => a.domestico).map(a => {
+    const pr = Object.entries(a.scorta || {}).filter(([, v]) => v).map(([k, v]) => `${k} ${v}`).join(", ");
+    return `<div style="font-size:12px">${esc(a.nome || NOME_DOM[a.specie] || a.specie)} (${esc(NOME_DOM[a.specie] || a.specie)}, ${a.sesso === "f" ? "♀" : "♂"}${a.adulto ? "" : " piccolo"}) · sazietà ${a.sazieta}${a.recinto ? " · 🏠 recinto" : ""}${pr ? " · 🧺 " + esc(pr) : ""}</div>`;
+  }).join("");
+  const col = mondo.colture || [], campi = mondo.costruzioni.filter(c => c.tipo === "campo" || c.tipo === "orto").length;
+  const recs = mondo.costruzioni.filter(c => c.tipo === "recinto").length, can = mondo.costruzioni.filter(c => c.tipo === "canale").length;
+  const mat = col.filter(k => k.stadio >= 3).length;
+  $("#fauna").innerHTML = `<div class="chips">${chips}</div>${dom ? "<hr>" + dom : ""}<div style="font-size:12px;margin-top:6px">🌾 campi: ${campi} · semine: ${col.length} (mature: ${mat}) · 🏠 recinti: ${recs} · 💧 tratti di canale: ${can}</div>`;
+}
+function evoluzione() {
+  const h = mondo.storico || [];
+  const el = $("#evo");
+  if (h.length < 2) { el.innerHTML = "<small class='hint'>Il grafico compare dopo qualche turno.</small>"; return; }
+  const serie = [["conoscenze", "#3d6fd6", "righe di taccuino"], ["costruzioni", "#d68a1f", "costruzioni"], ["invenzioni", "#d6405a", "invenzioni"]];
+  const W = 300, H = 70;
+  let svg = `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">`;
+  for (const [k, col] of serie) {
+    const mx = Math.max(1, ...h.map(s => s[k]));
+    const pts = h.map((s, i) => `${(i / (h.length - 1) * (W - 4) + 2).toFixed(1)},${(H - 4 - s[k] / mx * (H - 8)).toFixed(1)}`).join(" ");
+    svg += `<polyline fill="none" stroke="${col}" stroke-width="2" points="${pts}"/>`;
+  }
+  svg += "</svg>";
+  const u = h[h.length - 1];
+  el.innerHTML = svg + `<div class="legend">${serie.map(([k, c, n]) => `<span><span class="dot" style="background:${c}"></span>${n}: ${u[k]}</span>`).join("")}</div>`;
+}
+
+// ---------------------------------------------------------------- spawn
+const PRESET = [
+  { tipo: "oggetto", nome: "barca_naufragata", descrizione: "Il relitto di una piccola barca spiaggiata, con assi ancora buone e delle cime.", contenuto: { legno: 6, fibre: 4 } },
+  { tipo: "oggetto", nome: "cassa_misteriosa", descrizione: "Una cassa chiusa, bagnata dal mare, con uno strano simbolo sul coperchio.", contenuto: { conserva: 2, semi: 3 } },
+  { tipo: "oggetto", nome: "seme_misterioso", descrizione: "Un seme grande e violaceo che non assomiglia a niente di conosciuto.", contenuto: { semi: 1 } },
+  { tipo: "oggetto", nome: "libro_bagnato", descrizione: "Un libro fradicio, in una lingua che nessuno dei due conosce. Alcune pagine hanno disegni di utensili." },
+  { tipo: "personaggio", nome: "Straniero", sesso: "m", specie: "umano", descrizione: "Un naufrago silenzioso e diffidente. Conosce le piante commestibili e ha paura del mare." },
+  { tipo: "personaggio", nome: "Bambina", sesso: "f", specie: "umano", descrizione: "Una bambina curiosa arrivata su un pezzo di legno. Fa mille domande e non ha paura di niente." },
+  { tipo: "animale", nome: "capra", sesso: "f", descrizione: "Una capra: bruca erba e semi, da adulta fa latte se addomesticata." },
+  { tipo: "animale", nome: "muflone", sesso: "m", descrizione: "Pecora selvatica dal vello fitto." },
+  { tipo: "animale", nome: "fagiano", sesso: "f", descrizione: "Uccello di terra: becchetta semi, depone uova." },
+  { tipo: "animale", nome: "cinghiale", sesso: "m", descrizione: "Cinghiale selvatico, diffidente." },
+  { tipo: "animale", nome: "uro", sesso: "f", descrizione: "Bovino selvatico enorme: pericoloso, ma forte." },
+  { tipo: "animale", nome: "coniglio", sesso: "f", descrizione: "Piccolo e veloce." },
+  { tipo: "animale", nome: "lupo", sesso: "m", descrizione: "Predatore." },
+];
+$("#presets").innerHTML = PRESET.map((p, i) => `<button class="btn" data-i="${i}">${p.tipo === "oggetto" ? "📦" : p.tipo === "animale" ? "🐾" : "🧍"} ${esc(p.nome.replace(/_/g, " "))}</button>`).join("");
+$("#presets").addEventListener("click", e => { const b = e.target.closest("button"); if (b) invia({ ...PRESET[+b.dataset.i] }); });
+$("#spForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const f = new FormData(e.target), o = { tipo: f.get("tipo"), nome: f.get("nome").trim(), descrizione: f.get("descrizione").trim() };
+  if (o.tipo === "personaggio") { o.specie = "umano"; o.sesso = f.get("sesso"); }
+  if (o.tipo === "animale") { o.sesso = f.get("sesso"); }
+  if (f.get("x") !== "" && f.get("y") !== "") { o.x = +f.get("x"); o.y = +f.get("y"); }
+  const c = f.get("contenuto").trim();
+  if (c && o.tipo === "oggetto") { try { o.contenuto = JSON.parse(c); } catch (err) { alert("Il contenuto non è un JSON valido."); return; } }
+  invia(o); e.target.reset();
+});
+async function invia(item) {
+  const pre = $("#json"); pre.style.display = "none";
+  if (!(cfg.token && cfg.repo)) {
+    pre.style.display = "block";
+    pre.textContent = "Nessun token impostato (⚙). Aggiungi questa riga dentro \"coda\" di data/spawn.json:\n" + JSON.stringify(item);
+    return;
+  }
+  $("#spInfo").textContent = "Invio in corso…";
+  try {
+    const url = `https://api.github.com/repos/${cfg.repo}/contents/data/spawn.json`;
+    const H = { Authorization: `Bearer ${cfg.token}`, Accept: "application/vnd.github+json" };
+    const r = await fetch(url, { headers: H, cache: "no-store" }); if (!r.ok) throw new Error("lettura " + r.status);
+    const j = await r.json();
+    const cur = JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g, "")))));
+    cur.coda = cur.coda || []; cur.coda.push(item);
+    const body = btoa(unescape(encodeURIComponent(JSON.stringify(cur, null, 1) + "\n")));
+    const w = await fetch(url, { method: "PUT", headers: H, body: JSON.stringify({ message: "spawn: " + item.nome, content: body, sha: j.sha }) });
+    if (!w.ok) throw new Error("scrittura " + w.status);
+    spawnq = cur; aggiornaUI();
+  } catch (err) {
+    $("#spInfo").textContent = "Errore: " + err.message + ". Controlla repo e permessi del token.";
+  }
+}
+
+// ---------------------------------------------------------------- avvio
+$("#bReplay").addEventListener("click", replay);
+$("#bCfg").addEventListener("click", () => { $("#cfgRepo").value = cfg.repo || ""; $("#cfgTok").value = cfg.token || ""; $("#dlg").showModal(); });
+$("#cfgSave").addEventListener("click", () => { cfg.repo = $("#cfgRepo").value.trim(); cfg.token = $("#cfgTok").value.trim(); saveCfg(); setTimeout(avvia, 50); });
+function messaggio(t) { const m = $("#msg"); m.style.display = t ? "flex" : "none"; m.innerHTML = t || ""; }
+async function avvia() {
+  buildSprites();
+  try {
+    messaggio("");
+    await caricaTutto(true);
+    $("#bReplay").disabled = false;
+    if (!avvia.fatto) { avvia.fatto = true; requestAnimationFrame(frame); setTimeout(replay, 600); }
+  } catch (e) {
+    messaggio("Non riesco a leggere i dati.<br><br>Se il repository è privato apri ⚙ e inserisci repo e token.<br>Se è pubblico, controlla che GitHub Pages sia attivo.");
+    if (!avvia.fatto) { avvia.fatto = true; requestAnimationFrame(frame); }
+  }
+}
+setInterval(async () => { try { if (await caricaTutto(false) && !replaying) replay(); } catch (e) {} }, 5 * 60 * 1000);
+avvia();
+</script>
+</body>
+</html>
